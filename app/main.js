@@ -305,8 +305,23 @@ function actualOpenAtLogin() {
   return app.getLoginItemSettings(loginItemSpec(true)).openAtLogin;
 }
 
+/**
+ * 옛 이름으로 남은 자동 실행 등록. 지워야 한다.
+ *
+ * 레지스트리에 적히는 이름은 **AppUserModelId**다. 그것을 지정하기 전에 만든
+ * 등록은 `electron.app.<앱 이름>`으로 남아 있고, 새 이름으로 하나를 더 적어도
+ * 옛 것은 그대로다. 그러면 로그인할 때 앱이 **두 번** 뜬다. 두 번째는 단일 실행
+ * 잠금에 막혀 바로 끝나지만, 그 전에 'second-instance'가 일어나 팝업이 열렸다.
+ */
+const LEGACY_LOGIN_ITEMS = ["electron.app.AI Usage Meter", "electron.app.Electron"];
+
 function setOpenAtLogin(enabled) {
   app.setLoginItemSettings(loginItemSpec(enabled));
+  for (const name of LEGACY_LOGIN_ITEMS) {
+    try {
+      app.setLoginItemSettings({ openAtLogin: false, name });
+    } catch { /* 없으면 그만이다 */ }
+  }
   const actual = actualOpenAtLogin();
   persist({ openAtLogin: actual });
   return actual;
@@ -403,7 +418,9 @@ function enforceBounds() {
     widget.setBounds(want);
   }
   if (SYNC_TRACE) console.log(`[bounds] now=${now.x},${now.y} ${now.width}x${now.height} -> want=${want.x},${want.y} ${want.width}x${want.height}`);
-  persist({ x: want.x, y: want.y });
+  // 우리가 작업표시줄을 피해 옮긴 자리는 저장하지 않는다. 사용자가 끌어다 둔
+  // 자리만 저장한다.
+  if (!lifting) persist({ x: want.x, y: want.y });
 }
 
 /**
@@ -434,6 +451,8 @@ function applyZoom() {
  * ------------------------------------------------------------------ */
 
 let taskbarWatcher = null;
+/** 작업표시줄을 피해 창을 옮기는 중. 그동안의 'moved'는 저장하지 않는다. */
+let lifting = false;
 let taskbarShown = true;
 let taskbarReadingSeen = false;
 let fadeTimer = null;
@@ -541,8 +560,13 @@ function liftAboveTaskbar(rects) {
   const area = screen.getDisplayMatching(now).bounds;
   if (wantY === now.y || wantY < area.y) return;   // 위쪽 작업표시줄이면 올릴 자리가 없다
 
+  // 저장하지는 않는다. 비킨 자리는 지금 작업표시줄 높이에 맞춘 임시 자리다.
+  // 저장하면 모니터를 바꾸거나 작업표시줄 높이가 달라질 때마다 저장값이 조금씩
+  // 밀려, 사용자가 둔 자리가 없어진다("위치가 고정되지 않는다").
+  // setBounds가 moved를 부르므로, 그 사이에는 저장을 막는다.
+  lifting = true;
   widget.setBounds({ ...now, y: wantY });
-  persist({ y: wantY });
+  setTimeout(() => { lifting = false; }, 300);
   if (SYNC_TRACE) console.log(`[tb] 작업표시줄 위로 비킴 ${now.y} -> ${wantY}`);
 }
 
@@ -736,7 +760,16 @@ function fadeWidgetOut() {
  * 상세 팝업
  * ------------------------------------------------------------------ */
 
+/**
+ * 상세 팝업 창을 만든다. **이미 있으면 아무것도 하지 않는다.**
+ *
+ * 두 번 부르면 앞 창이 참조를 잃고 화면에 남는다. 보이는데 닫히지 않고, 자료도
+ * 받지 못해 속이 빈 창이 된다. 실제로 그랬다. 부팅 때 자동 실행 등록이 둘이라
+ * 앱이 두 번 떠서, 두 번째가 'second-instance'를 일으켰고, 그 처리가 첫 번째
+ * 앱의 준비가 끝나기 전에 팝업을 만들었다. 뒤이어 준비 과정이 팝업을 또 만들었다.
+ */
 function createPopup() {
+  if (popup && !popup.isDestroyed()) return;
   popup = new BrowserWindow({
     ...POPUP_SIZE,
     frame: false,
@@ -987,11 +1020,22 @@ function registerIpc() {
  * 수명 주기
  * ------------------------------------------------------------------ */
 
+/** 이 프로세스가 시작한 시각. 부팅 때 겹쳐 뜨는 실행을 가리는 데 쓴다. */
+const startedAt = Date.now();
+/** 이 시간 안에 들어온 두 번째 실행은 부팅이 겹친 것으로 보고 무시한다. */
+const STARTUP_QUIET_MS = 20_000;
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("second-instance", (_e, argv) => {
     if (argv.includes("--testnotify")) { notifyTest(); return; }
+
+    // 부팅 직후의 두 번째 실행은 사용자가 부른 것이 아니다. 자동 실행 등록이
+    // 둘이면(옛 이름이 남아 있을 때) 로그인하자마자 앱이 두 번 뜨고, 그때마다
+    // 팝업이 열려 있었다. 사용자가 켜지도 않은 창이 바탕화면에 떠 있게 된다.
+    if (Date.now() - startedAt < STARTUP_QUIET_MS) return;
+
     widget?.showInactive();
     togglePopup();
   });

@@ -24,6 +24,25 @@
 
 $ErrorActionPreference = 'Stop'
 
+# **이 프로세스를 DPI 인식으로 만든다.** 그러지 않으면 Windows가 창 좌표를 배율로
+# 나눠서 돌려준다. 125% 화면에서 작업표시줄 위쪽이 1380인데 1104로 보이고, 받는 쪽은
+# 그 값을 다시 배율로 나눠 DIP로 바꾸므로 두 번 나뉜다. 실측: 작업표시줄 위가 1104인데
+# 위젯이 840으로 올라가, 264px이나 떠 있었다.
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class DPI {
+  [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
+  [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+  public static void Aware() {
+    // -4 = PER_MONITOR_AWARE_V2. 없는 Windows에서는 예전 방식으로 떨어진다.
+    try { if (SetProcessDpiAwarenessContext(new IntPtr(-4))) return; } catch { }
+    try { SetProcessDPIAware(); } catch { }
+  }
+}
+"@
+[DPI]::Aware()
+
 Add-Type @"
 using System;
 using System.Collections.Generic;

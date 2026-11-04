@@ -46,11 +46,38 @@ export function configPath(env = process.env) {
   return path.join(base, "ai-usage-collector", "widget.json");
 }
 
+/**
+ * 설정 파일이 **있는데 못 읽은** 상태. 그러면 기본값으로 돌아가지만, 그 기본값을
+ * 다시 적어 사용자의 설정을 덮어쓰지는 않는다.
+ *
+ * 부팅 직후 한 번 이런 일이 있었다. 저장된 배율·플랜 대신 기본값으로 떴다.
+ * 그 상태에서 창을 한 번만 옮겨도 저장이 일어나 설정이 통째로 날아간다.
+ */
+let readFailed = false;
+
+/** 설정을 못 읽어 기본값으로 돌아갔는가. 진단용. */
+export function configReadFailed() {
+  return readFailed;
+}
+
 export function readConfig(file = configPath()) {
   let saved = {};
-  try {
-    saved = parseJsonLoose(fs.readFileSync(file, "utf8"));
-  } catch { /* 없거나 깨졌으면 기본값 */ }
+  readFailed = false;
+
+  // 부팅 직후에는 파일이 잠깐 안 읽힐 수 있다. 몇 번 더 해 본다.
+  for (let tries = 0; tries < 3; tries++) {
+    try {
+      saved = parseJsonLoose(fs.readFileSync(file, "utf8"));
+      break;
+    } catch (err) {
+      if (err?.code === "ENOENT") break;        // 첫 실행. 기본값이 맞다
+      // 내용이 깨진 것은 다시 읽어도 같다. 기본값으로 덮어써 되살리는 편이 낫다.
+      if (!err?.code) break;
+      if (tries === 2) { readFailed = true; break; }
+      sleepSync(150);
+    }
+  }
+
   const config = { ...DEFAULTS, ...saved };
   // 모르는 값이 들어와도 UI가 깨지지 않게 막는다.
   if (!SCALES.includes(config.scale)) config.scale = DEFAULTS.scale;
@@ -58,7 +85,14 @@ export function readConfig(file = configPath()) {
   return config;
 }
 
+/** 읽기 재시도 사이의 짧은 기다림. 설정을 읽는 시점에는 아직 창이 없다. */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 export function writeConfig(config, file = configPath()) {
+  // 못 읽은 설정 위에 기본값을 덮지 않는다. 잃는 쪽이 훨씬 나쁘다.
+  if (readFailed) return false;
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
