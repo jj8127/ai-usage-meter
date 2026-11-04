@@ -469,7 +469,9 @@ function startTaskbarWatcher() {
     for (const line of lines) {
       const t = line.trim();
       if (SYNC_TRACE) console.log(`[tb] 감시 응답 ${JSON.stringify(t)}`);
-      if (t === "0" || t === "1") applyTaskbarState(t === "1");
+      // "0" 또는 "1 l,t,r,b l,t,r,b". 뒤에 붙는 것은 올라와 있는 작업표시줄 사각형.
+      const [state, ...rects] = t.split(" ");
+      if (state === "0" || state === "1") applyTaskbarState(state === "1", rects);
     }
   });
 
@@ -488,14 +490,60 @@ function stopTaskbarWatcher() {
   child.kill();
 }
 
-function applyTaskbarState(shown) {
+function applyTaskbarState(shown, rects = []) {
   taskbarReadingSeen = true;
   const rising = shown && !taskbarShown;
   taskbarShown = shown;
+  if (shown) liftAboveTaskbar(rects);
   syncWidgetVisibility();
   // 따라가기를 꺼 둔 경우 위젯은 이미 떠 있으므로 보임 전환이 일어나지 않는다.
   // 그때도 작업표시줄이 올라오는 순간에 다시 올려 줘야 가려지지 않는다.
   if (rising) raiseBurst();
+}
+
+/**
+ * 작업표시줄 아래로 깔리지 않게 위젯을 그 위로 비켜 세운다.
+ *
+ * 최상위로 다시 올리는 것(raise)만으로는 모자란 순간이 있다. **시작 메뉴가 열려
+ * 있는 동안** 셸은 작업표시줄을 자기 층에 올려 두고, 위젯을 아무리 다시 올려도 그
+ * 아래에 깔린다. 실측: 위젯 창은 보임(13,1027~1091)인데 화면에는 작업표시줄
+ * (1032~1080)만 보이고 위젯은 한 조각도 보이지 않았다.
+ *
+ * 그래서 겹치지 않게 자리를 옮긴다. 겹침은 우리가 피할 수 있고, 층싸움은 아니다.
+ * 올리기만 하고 내리지는 않는다. 작업표시줄을 따라 오르내리면 보일 때마다 자리가
+ * 흔들린다.
+ */
+function liftAboveTaskbar(rects) {
+  if (!widget || widget.isDestroyed() || rects.length === 0) return;
+  if (process.platform !== "win32" || typeof screen.screenToDipRect !== "function") return;
+  if (Date.now() - lastMovedAt < DRAG_HOLD_MS) return;   // 끌고 있는 중에는 비키지 않는다
+
+  const now = widget.getBounds();
+  let top = null;
+
+  for (const text of rects) {
+    const n = text.split(",").map(Number);
+    if (n.length !== 4 || n.some((v) => !Number.isFinite(v))) continue;
+
+    // 감시는 화면 픽셀로 보낸다. 창 좌표는 DIP라 배율이 섞인 PC에서는 다른 값이다.
+    const bar = screen.screenToDipRect(widget, {
+      x: n[0], y: n[1], width: n[2] - n[0], height: n[3] - n[1],
+    });
+
+    if (bar.width < bar.height) continue;                                  // 세로 작업표시줄
+    if (now.x + now.width <= bar.x || bar.x + bar.width <= now.x) continue; // 다른 모니터
+    if (now.y + now.height <= bar.y) continue;                             // 이미 위에 있다
+    top = top === null ? bar.y : Math.min(top, bar.y);
+  }
+  if (top === null) return;
+
+  const wantY = Math.round(top - now.height);
+  const area = screen.getDisplayMatching(now).bounds;
+  if (wantY === now.y || wantY < area.y) return;   // 위쪽 작업표시줄이면 올릴 자리가 없다
+
+  widget.setBounds({ ...now, y: wantY });
+  persist({ y: wantY });
+  if (SYNC_TRACE) console.log(`[tb] 작업표시줄 위로 비킴 ${now.y} -> ${wantY}`);
 }
 
 /*

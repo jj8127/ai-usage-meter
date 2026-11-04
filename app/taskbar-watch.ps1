@@ -49,6 +49,10 @@ public class TB {
   /// 마지막 판정 근거. 문제를 추적할 때만 읽는다.
   public static string Detail = "";
 
+  /// 올라와 있는 작업표시줄의 사각형들. "l,t,r,b l,t,r,b" 꼴, 화면 픽셀 기준.
+  /// 위젯이 그 아래 깔리지 않게 비켜 줄 때 쓴다.
+  public static string Rects = "";
+
   /// 화면에 있는 작업표시줄 창 전부. 주 모니터 하나 + 보조 모니터 수만큼.
   static List<KeyValuePair<string, IntPtr>> Bars() {
     var bars = new List<KeyValuePair<string, IntPtr>>();
@@ -67,7 +71,9 @@ public class TB {
   public static int Shown() {
     int shown = 0;
     var log = new StringBuilder();
+    var rects = new StringBuilder();
     var bars = Bars();
+    Rects = "";
 
     // 작업표시줄을 못 찾으면 가린다고 보지 않는다. 숨은 채로 남는 편이 더 나쁘다.
     if (bars.Count == 0) { Detail = "작업표시줄 없음"; return 1; }
@@ -88,12 +94,17 @@ public class TB {
       int iy = Math.Min(r.Bottom, mi.rcMonitor.Bottom) - Math.Max(r.Top, mi.rcMonitor.Top);
       int ix = Math.Min(r.Right, mi.rcMonitor.Right) - Math.Max(r.Left, mi.rcMonitor.Left);
       bool one = ix >= MIN_VISIBLE_PX && iy >= MIN_VISIBLE_PX;
-      if (one) shown = 1;
+      if (one) {
+        shown = 1;
+        if (rects.Length > 0) rects.Append(" ");
+        rects.Append(r.Left + "," + r.Top + "," + r.Right + "," + r.Bottom);
+      }
 
       log.Append(cls + " ix=" + ix + " iy=" + iy + " -> " + one + "; ");
     }
 
     Detail = log.ToString();
+    Rects = rects.ToString();
     return shown;
   }
 }
@@ -103,15 +114,20 @@ public class TB {
 if ($args -contains '--dump') {
   $now = [TB]::Shown()
   [Console]::Out.WriteLine("shown=$now  $([TB]::Detail)")
+  [Console]::Out.WriteLine("rects=$([TB]::Rects)")
   exit
 }
 
-$last = -1
+# 보임이면 올라와 있는 작업표시줄 사각형도 함께 보낸다: "1 l,t,r,b l,t,r,b".
+# 숨음이면 "0" 한 글자. 사각형이 달라져도 다시 보낸다. 작업표시줄이 어디까지
+# 차지하는지 알아야 위젯이 그 아래로 깔리지 않게 비켜설 수 있다.
+$last = ""
 while ($true) {
   $state = [TB]::Shown()
-  if ($state -ne $last) {
-    $last = $state
-    [Console]::Out.WriteLine($state)
+  $line = if ($state -eq 1) { "1 $([TB]::Rects)".Trim() } else { "0" }
+  if ($line -ne $last) {
+    $last = $line
+    [Console]::Out.WriteLine($line)
     [Console]::Out.Flush()
   }
   Start-Sleep -Milliseconds 150
