@@ -1,7 +1,7 @@
 {
   "name": "ai-usage-collector",
   "productName": "AI Usage Meter",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Windows desktop strip showing remaining Claude Code and Codex CLI quota: percent left and time to reset.",
   "type": "module",
   "main": "app/main.js",
