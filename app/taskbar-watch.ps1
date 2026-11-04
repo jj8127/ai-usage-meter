@@ -49,6 +49,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 public class TB {
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr FindWindow(string cls, string name);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string name);
   [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
@@ -72,6 +73,22 @@ public class TB {
   /// 위젯이 그 아래 깔리지 않게 비켜 줄 때 쓴다.
   public static string Rects = "";
 
+  /// 셸이 작업표시줄을 **앱보다 위 층에** 올려 둔 상태(시작 메뉴 등)면 1.
+  ///
+  /// 그동안은 위젯을 아무리 최상위로 올려도 작업표시줄 아래에 깔린다(실측:
+  /// 창은 보임인데 화면에는 작업표시줄만 보였다). 앞에 있는 창이 셸 자신의
+  /// 화면인지로 잡는다.
+  public static int Over = 0;
+
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+
+  static bool ShellOverlay() {
+    var sb = new StringBuilder(64);
+    GetClassName(GetForegroundWindow(), sb, sb.Capacity);
+    var cls = sb.ToString();
+    return cls == "Windows.UI.Core.CoreWindow" || cls == "XamlExplorerHostIslandWindow";
+  }
+
   /// 화면에 있는 작업표시줄 창 전부. 주 모니터 하나 + 보조 모니터 수만큼.
   static List<KeyValuePair<string, IntPtr>> Bars() {
     var bars = new List<KeyValuePair<string, IntPtr>>();
@@ -93,6 +110,7 @@ public class TB {
     var rects = new StringBuilder();
     var bars = Bars();
     Rects = "";
+    Over = 0;
 
     // 작업표시줄을 못 찾으면 가린다고 보지 않는다. 숨은 채로 남는 편이 더 나쁘다.
     if (bars.Count == 0) { Detail = "작업표시줄 없음"; return 1; }
@@ -113,6 +131,7 @@ public class TB {
       int iy = Math.Min(r.Bottom, mi.rcMonitor.Bottom) - Math.Max(r.Top, mi.rcMonitor.Top);
       int ix = Math.Min(r.Right, mi.rcMonitor.Right) - Math.Max(r.Left, mi.rcMonitor.Left);
       bool one = ix >= MIN_VISIBLE_PX && iy >= MIN_VISIBLE_PX;
+      if (one && ShellOverlay()) Over = 1;
       if (one) {
         shown = 1;
         if (rects.Length > 0) rects.Append(" ");
@@ -133,17 +152,16 @@ public class TB {
 if ($args -contains '--dump') {
   $now = [TB]::Shown()
   [Console]::Out.WriteLine("shown=$now  $([TB]::Detail)")
-  [Console]::Out.WriteLine("rects=$([TB]::Rects)")
+  [Console]::Out.WriteLine("rects=$([TB]::Rects)  over=$([TB]::Over)")
   exit
 }
 
-# 보임이면 올라와 있는 작업표시줄 사각형도 함께 보낸다: "1 l,t,r,b l,t,r,b".
-# 숨음이면 "0" 한 글자. 사각형이 달라져도 다시 보낸다. 작업표시줄이 어디까지
-# 차지하는지 알아야 위젯이 그 아래로 깔리지 않게 비켜설 수 있다.
+# 보임이면 "1 <셸이 위에 올렸나> <사각형들>"을 보낸다: "1 0 0,1380,2560,1440".
+# 숨음이면 "0" 한 글자. 값이 달라지면 다시 보낸다.
 $last = ""
 while ($true) {
   $state = [TB]::Shown()
-  $line = if ($state -eq 1) { "1 $([TB]::Rects)".Trim() } else { "0" }
+  $line = if ($state -eq 1) { "1 $([TB]::Over) $([TB]::Rects)".Trim() } else { "0" }
   if ($line -ne $last) {
     $last = $line
     [Console]::Out.WriteLine($line)

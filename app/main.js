@@ -412,16 +412,14 @@ function enforceBounds() {
   if (!widget || widget.isDestroyed()) return;
   const size = widgetSize(config);
   const now = widget.getBounds();
-  const inside = clampToDisplay(now, size);
-  // 끌어다 놓은 자리가 작업표시줄에 깔리면, 놓는 순간 바로 그 위로 올린다.
-  // 나중에 혼자 움직이는 것보다, 손을 뗀 자리에서 바로잡히는 편이 낫다.
-  const want = { ...inside, ...size, y: capAboveTaskbar({ ...inside, ...size }) };
+  const want = { ...clampToDisplay(now, size), ...size };
 
   if (now.x !== want.x || now.y !== want.y || now.width !== want.width || now.height !== want.height) {
     widget.setBounds(want);
   }
   if (SYNC_TRACE) console.log(`[bounds] now=${now.x},${now.y} ${now.width}x${now.height} -> want=${want.x},${want.y} ${want.width}x${want.height}`);
-  persist({ x: want.x, y: want.y });
+  // 우리가 잠깐 비켜 둔 자리는 저장하지 않는다. 사용자가 끌어다 둔 자리만 남긴다.
+  if (!shifting) persist({ x: want.x, y: want.y });
 }
 
 /**
@@ -454,6 +452,10 @@ function applyZoom() {
 let taskbarWatcher = null;
 /** 마지막으로 올라와 있던 작업표시줄 사각형들(창 좌표). 자리를 피할 때 쓴다. */
 let taskbarBars = [];
+/** 잠깐 비키기 전의 y. 비켜 있지 않으면 null. */
+let shiftedFrom = null;
+/** 우리가 옮기는 중. 그동안의 'moved'는 저장하지 않는다. */
+let shifting = false;
 let taskbarShown = true;
 let taskbarReadingSeen = false;
 let fadeTimer = null;
@@ -489,9 +491,9 @@ function startTaskbarWatcher() {
     for (const line of lines) {
       const t = line.trim();
       if (SYNC_TRACE) console.log(`[tb] 감시 응답 ${JSON.stringify(t)}`);
-      // "0" 또는 "1 l,t,r,b l,t,r,b". 뒤에 붙는 것은 올라와 있는 작업표시줄 사각형.
-      const [state, ...rects] = t.split(" ");
-      if (state === "0" || state === "1") applyTaskbarState(state === "1", rects);
+      // "0" 또는 "1 <셸이 위에 올렸나> <사각형들>".
+      const [state, over, ...rects] = t.split(" ");
+      if (state === "0" || state === "1") applyTaskbarState(state === "1", over === "1", rects);
     }
   });
 
@@ -510,11 +512,12 @@ function stopTaskbarWatcher() {
   child.kill();
 }
 
-function applyTaskbarState(shown, rects = []) {
+function applyTaskbarState(shown, shellOver = false, rects = []) {
   taskbarReadingSeen = true;
   const rising = shown && !taskbarShown;
   taskbarShown = shown;
-  if (shown) liftAboveTaskbar(rects);
+  if (shown) taskbarBars = parseBars(rects);
+  applyShellOverlay(shown && shellOver);
   syncWidgetVisibility();
   // 따라가기를 꺼 둔 경우 위젯은 이미 떠 있으므로 보임 전환이 일어나지 않는다.
   // 그때도 작업표시줄이 올라오는 순간에 다시 올려 줘야 가려지지 않는다.
@@ -533,21 +536,58 @@ function applyTaskbarState(shown, rects = []) {
  * 올리기만 하고 내리지는 않는다. 작업표시줄을 따라 오르내리면 보일 때마다 자리가
  * 흔들린다.
  */
-function liftAboveTaskbar(rects) {
-  taskbarBars = parseBars(rects);
+/**
+ * 셸이 작업표시줄을 앱보다 위 층에 올려 둔 동안(시작 메뉴 등)만 잠깐 비킨다.
+ *
+ * 이 위젯은 작업표시줄 **위에 겹쳐 뜨는** 오버레이다. 사용자가 거기에 두는 것이
+ * 제자리이고, 평소에는 실제로 작업표시줄을 덮는다(실측). 그런데 시작 메뉴가
+ * 열려 있는 동안만은 셸이 작업표시줄을 자기 층에 올려, 아무리 최상위로 올려도
+ * 그 아래에 깔린다. 그 층은 앱이 못 올라간다.
+ *
+ * 그래서 그동안만 작업표시줄 위로 비켰다가, 닫히면 원래 자리로 돌려놓는다.
+ * **저장하지 않는다.** 사용자가 놓은 자리는 그대로 남는다.
+ */
+function applyShellOverlay(over) {
   if (!widget || widget.isDestroyed()) return;
-  if (Date.now() - lastMovedAt < DRAG_HOLD_MS) return;   // 끌고 있는 중에는 비키지 않는다
 
-  const now = widget.getBounds();
-  const wantY = capAboveTaskbar(now);
-  if (wantY === now.y) return;
+  if (over) {
+    if (shiftedFrom !== null) return;                      // 이미 비켜 있다
+    if (Date.now() - lastMovedAt < DRAG_HOLD_MS) return;   // 끌고 있는 중
+    const now = widget.getBounds();
+    const y = capAboveTaskbar(now);
+    if (y === now.y) return;                               // 겹치지 않는다
+    shiftedFrom = now.y;
+    moveWidgetY(y);
+    if (SYNC_TRACE) console.log(`[tb] 시작 메뉴 동안 비킴 ${now.y} -> ${y}`);
+    return;
+  }
 
-  widget.setBounds({ ...now, y: wantY });
-  // **옮긴 자리를 저장한다.** 저장하지 않으면 켤 때마다 같은 만큼 다시 올라가,
-  // 사용자가 보기에는 "둔 자리에서 자꾸 바뀌는" 것이 된다. 저장하면 한 번만
-  // 바로잡히고 그 뒤로는 움직이지 않는다.
-  persist({ y: wantY });
-  if (SYNC_TRACE) console.log(`[tb] 작업표시줄 위로 비킴 ${now.y} -> ${wantY}`);
+  if (shiftedFrom === null) return;
+  const back = shiftedFrom;
+  shiftedFrom = null;
+  moveWidgetY(back);
+  if (SYNC_TRACE) console.log(`[tb] 제자리로 ${back}`);
+}
+
+/** 우리가 옮기는 동안의 'moved'는 저장하지 않는다. 사용자가 둔 자리가 아니다. */
+function moveWidgetY(y) {
+  shifting = true;
+  widget.setBounds({ ...widget.getBounds(), y });
+  setTimeout(() => { shifting = false; }, 300);
+}
+
+/**
+ * 작업표시줄에 깔리지 않는 y. 겹치지 않으면 그대로 돌려준다.
+ * 잠깐 비킬 때만 쓴다. 저장되는 자리가 아니다.
+ */
+function capAboveTaskbar(bounds) {
+  let y = bounds.y;
+  for (const bar of taskbarBars) {
+    if (bounds.x + bounds.width <= bar.x || bar.x + bar.width <= bounds.x) continue;  // 다른 모니터
+    const top = Math.round(bar.y - bounds.height);
+    if (y + bounds.height > bar.y && top >= screen.getDisplayMatching(bounds).bounds.y) y = top;
+  }
+  return y;
 }
 
 /** 감시가 보낸 "l,t,r,b" 문자열들을 창 좌표(DIP) 사각형으로 바꾼다. */
@@ -568,23 +608,6 @@ function parseBars(rects) {
     bars.push(bar);
   }
   return bars;
-}
-
-/**
- * 작업표시줄에 깔리지 않는 y를 돌려준다. 겹치지 않으면 그대로 돌려준다.
- *
- * 최상위로 다시 올리는 것만으로는 모자라다. 시작 메뉴가 열려 있는 동안 셸은
- * 작업표시줄을 자기 층에 올려 두고, 위젯은 그 아래에 깔린다. 실측: 위젯 창은
- * 보임인데 화면에는 작업표시줄만 보였다. 겹침은 우리가 피할 수 있다.
- */
-function capAboveTaskbar(bounds) {
-  let y = bounds.y;
-  for (const bar of taskbarBars) {
-    if (bounds.x + bounds.width <= bar.x || bar.x + bar.width <= bounds.x) continue;  // 다른 모니터
-    const top = Math.round(bar.y - bounds.height);
-    if (y + bounds.height > bar.y && top >= screen.getDisplayMatching(bounds).bounds.y) y = top;
-  }
-  return y;
 }
 
 /*
