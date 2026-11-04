@@ -35,7 +35,7 @@
 
 ## 설치
 
-[Releases](../../releases)에서 `AI Usage Meter-<버전>-setup.exe`를 받아 실행한다.
+[Releases](../../releases)에서 `AI.Usage.Meter-<버전>-setup.exe`를 받아 실행한다.
 사용자 폴더에 설치되고 관리자 권한이 필요 없다.
 
 설치본에 **코드 서명이 없다.** 처음 실행할 때 SmartScreen이 막는다

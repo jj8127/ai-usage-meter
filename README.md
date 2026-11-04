@@ -36,7 +36,7 @@ So every number on screen is **percent left** and **time until reset** — never
 
 ## Install
 
-Download `AI Usage Meter-<version>-setup.exe` from
+Download `AI.Usage.Meter-<version>-setup.exe` from
 [Releases](../../releases) and run it. It installs per-user, no admin rights.
 
 The installer is **not code-signed**, so SmartScreen will warn you on first run
