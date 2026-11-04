@@ -412,15 +412,16 @@ function enforceBounds() {
   if (!widget || widget.isDestroyed()) return;
   const size = widgetSize(config);
   const now = widget.getBounds();
-  const want = { ...clampToDisplay(now, size), ...size };
+  const inside = clampToDisplay(now, size);
+  // 끌어다 놓은 자리가 작업표시줄에 깔리면, 놓는 순간 바로 그 위로 올린다.
+  // 나중에 혼자 움직이는 것보다, 손을 뗀 자리에서 바로잡히는 편이 낫다.
+  const want = { ...inside, ...size, y: capAboveTaskbar({ ...inside, ...size }) };
 
   if (now.x !== want.x || now.y !== want.y || now.width !== want.width || now.height !== want.height) {
     widget.setBounds(want);
   }
   if (SYNC_TRACE) console.log(`[bounds] now=${now.x},${now.y} ${now.width}x${now.height} -> want=${want.x},${want.y} ${want.width}x${want.height}`);
-  // 우리가 작업표시줄을 피해 옮긴 자리는 저장하지 않는다. 사용자가 끌어다 둔
-  // 자리만 저장한다.
-  if (!lifting) persist({ x: want.x, y: want.y });
+  persist({ x: want.x, y: want.y });
 }
 
 /**
@@ -451,8 +452,8 @@ function applyZoom() {
  * ------------------------------------------------------------------ */
 
 let taskbarWatcher = null;
-/** 작업표시줄을 피해 창을 옮기는 중. 그동안의 'moved'는 저장하지 않는다. */
-let lifting = false;
+/** 마지막으로 올라와 있던 작업표시줄 사각형들(창 좌표). 자리를 피할 때 쓴다. */
+let taskbarBars = [];
 let taskbarShown = true;
 let taskbarReadingSeen = false;
 let fadeTimer = null;
@@ -533,41 +534,57 @@ function applyTaskbarState(shown, rects = []) {
  * 흔들린다.
  */
 function liftAboveTaskbar(rects) {
-  if (!widget || widget.isDestroyed() || rects.length === 0) return;
-  if (process.platform !== "win32" || typeof screen.screenToDipRect !== "function") return;
+  taskbarBars = parseBars(rects);
+  if (!widget || widget.isDestroyed()) return;
   if (Date.now() - lastMovedAt < DRAG_HOLD_MS) return;   // 끌고 있는 중에는 비키지 않는다
 
   const now = widget.getBounds();
-  let top = null;
+  const wantY = capAboveTaskbar(now);
+  if (wantY === now.y) return;
 
+  widget.setBounds({ ...now, y: wantY });
+  // **옮긴 자리를 저장한다.** 저장하지 않으면 켤 때마다 같은 만큼 다시 올라가,
+  // 사용자가 보기에는 "둔 자리에서 자꾸 바뀌는" 것이 된다. 저장하면 한 번만
+  // 바로잡히고 그 뒤로는 움직이지 않는다.
+  persist({ y: wantY });
+  if (SYNC_TRACE) console.log(`[tb] 작업표시줄 위로 비킴 ${now.y} -> ${wantY}`);
+}
+
+/** 감시가 보낸 "l,t,r,b" 문자열들을 창 좌표(DIP) 사각형으로 바꾼다. */
+function parseBars(rects) {
+  if (!widget || widget.isDestroyed()) return [];
+  if (process.platform !== "win32" || typeof screen.screenToDipRect !== "function") return [];
+
+  const bars = [];
   for (const text of rects) {
-    const n = text.split(",").map(Number);
+    const n = String(text).split(",").map(Number);
     if (n.length !== 4 || n.some((v) => !Number.isFinite(v))) continue;
 
     // 감시는 화면 픽셀로 보낸다. 창 좌표는 DIP라 배율이 섞인 PC에서는 다른 값이다.
     const bar = screen.screenToDipRect(widget, {
       x: n[0], y: n[1], width: n[2] - n[0], height: n[3] - n[1],
     });
-
-    if (bar.width < bar.height) continue;                                  // 세로 작업표시줄
-    if (now.x + now.width <= bar.x || bar.x + bar.width <= now.x) continue; // 다른 모니터
-    if (now.y + now.height <= bar.y) continue;                             // 이미 위에 있다
-    top = top === null ? bar.y : Math.min(top, bar.y);
+    if (bar.width < bar.height) continue;   // 세로 작업표시줄은 건드리지 않는다
+    bars.push(bar);
   }
-  if (top === null) return;
+  return bars;
+}
 
-  const wantY = Math.round(top - now.height);
-  const area = screen.getDisplayMatching(now).bounds;
-  if (wantY === now.y || wantY < area.y) return;   // 위쪽 작업표시줄이면 올릴 자리가 없다
-
-  // 저장하지는 않는다. 비킨 자리는 지금 작업표시줄 높이에 맞춘 임시 자리다.
-  // 저장하면 모니터를 바꾸거나 작업표시줄 높이가 달라질 때마다 저장값이 조금씩
-  // 밀려, 사용자가 둔 자리가 없어진다("위치가 고정되지 않는다").
-  // setBounds가 moved를 부르므로, 그 사이에는 저장을 막는다.
-  lifting = true;
-  widget.setBounds({ ...now, y: wantY });
-  setTimeout(() => { lifting = false; }, 300);
-  if (SYNC_TRACE) console.log(`[tb] 작업표시줄 위로 비킴 ${now.y} -> ${wantY}`);
+/**
+ * 작업표시줄에 깔리지 않는 y를 돌려준다. 겹치지 않으면 그대로 돌려준다.
+ *
+ * 최상위로 다시 올리는 것만으로는 모자라다. 시작 메뉴가 열려 있는 동안 셸은
+ * 작업표시줄을 자기 층에 올려 두고, 위젯은 그 아래에 깔린다. 실측: 위젯 창은
+ * 보임인데 화면에는 작업표시줄만 보였다. 겹침은 우리가 피할 수 있다.
+ */
+function capAboveTaskbar(bounds) {
+  let y = bounds.y;
+  for (const bar of taskbarBars) {
+    if (bounds.x + bounds.width <= bar.x || bar.x + bar.width <= bounds.x) continue;  // 다른 모니터
+    const top = Math.round(bar.y - bounds.height);
+    if (y + bounds.height > bar.y && top >= screen.getDisplayMatching(bounds).bounds.y) y = top;
+  }
+  return y;
 }
 
 /*
