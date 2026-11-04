@@ -1,0 +1,89 @@
+{
+  "name": "ai-usage-collector",
+  "productName": "AI Usage Meter",
+  "version": "0.1.0",
+  "description": "Windows desktop strip showing remaining Claude Code and Codex CLI quota: percent left and time to reset.",
+  "type": "module",
+  "main": "app/main.js",
+  "bin": {
+    "ai-usage": "bin/cli.js"
+  },
+  "scripts": {
+    "start": "node bin/cli.js",
+    "widget": "electron app/main.js",
+    "test": "node --test \"test/*.test.js\"",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "private": true,
+  "build": {
+    "appId": "dev.jj812.ai-usage-meter",
+    "productName": "AI Usage Meter",
+    "copyright": "",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "app/**/*",
+      "src/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "**/taskbar-watch.ps1",
+      "**/icons/tray*.png"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AI Usage Meter",
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^38.4.0",
+    "electron-builder": "^26.0.12"
+  },
+  "author": "jj8127",
+  "homepage": "https://github.com/jj8127/ai-usage-meter#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jj8127/ai-usage-meter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jj8127/ai-usage-meter/issues"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "codex",
+    "openai",
+    "anthropic",
+    "usage",
+    "rate-limit",
+    "quota",
+    "widget",
+    "electron",
+    "windows",
+    "taskbar"
+  ]
+}

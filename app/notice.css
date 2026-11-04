@@ -1,0 +1,82 @@
+/*
+ * 직접 그리는 알림 창.
+ *
+ * Windows 토스트를 쓰지 않는 이유: 시작 메뉴 바로가기에 AppUserModelID를 제대로
+ * 박아 두고 Windows API로 직접 쏴 봐도 이 PC에서는 알림 DB에 핸들러조차 생기지
+ * 않았다(전체 413개 중 0건). 예외도 나지 않고 조용히 사라진다.
+ * 끊김을 막겠다는 기능이 OS 사정으로 안 뜨면 아무 의미가 없어서 직접 그린다.
+ */
+
+.notice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  padding: 12px 12px 12px 16px;
+  background: var(--bg);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 var(--edge), 0 10px 30px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(14px);
+  transition: opacity var(--t-ui) var(--ease), transform var(--t-ui) var(--ease);
+}
+
+/* 들어올 때만 움직인다. 알림은 눈에 띄어야 하지만 흔들릴 필요는 없다. */
+.notice.shown { opacity: 1; transform: none; }
+
+/* 왼쪽 띠로 급한 정도를 표시한다. 색을 못 가려도 띠의 유무와 위치로 읽힌다. */
+.edge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--brand, var(--text-3));
+}
+
+.notice.warn .edge { background: var(--warn); }
+.notice.crit .edge { background: var(--crit); }
+
+.logo { flex: 0 0 auto; width: 22px; height: 22px; object-fit: contain; }
+.logo[src=""] { display: none; }
+
+.text { flex: 1; min-width: 0; }
+
+.title {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+  word-break: keep-all;
+}
+
+.body {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-2);
+  word-break: keep-all;
+}
+
+.close {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-3);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  padding: 2px 5px;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease), color var(--t-ui) var(--ease);
+}
+
+.close:hover { background: var(--surface-2); color: var(--text-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .notice { transition: none; transform: none; opacity: 1; }
+}

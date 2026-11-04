@@ -1,0 +1,95 @@
+/*
+ * 색 체계.
+ *
+ * 바탕은 Tailwind slate 계열의 잉크 네이비(#0f172a)다. 중립 회색보다 푸른 기가 있어
+ * 벽지 위에서 자기 바닥으로 읽히고, 그 위에 올리는 색이 탁해지지 않는다.
+ * 의미색은 Radix의 다크용 값(amber-9 등)을 가져왔다. 어두운 바탕에서 검증된 값이다.
+ *
+ * 모든 대비비는 바탕 #0f172a 기준으로 실측했다.
+ *   text 16.3:1 · text-2 12.0:1 · text-3 7.0:1 · text-4 3.8:1(선·미세 라벨 전용)
+ *   claude 6.2:1 · codex 7.2:1 · warn 11.3:1 · crit 6.0:1 · accent 7.0:1
+ */
+:root {
+  /* 면 */
+  --bg: #0f172a;             /* 플레이트, 시트 바탕 */
+  --surface-1: #1a2436;      /* 머리말, 설정 카드 */
+  --surface-2: #202c45;      /* 컨트롤 바탕 */
+  --surface-3: #2a3752;      /* 컨트롤 hover */
+  --groove: #05080f;         /* 막대가 파인 홈. 바탕보다 어두워야 빈 쪽이 보인다 */
+
+  /* 선. 가장 윗면 하이라이트만 따뜻하게 두어 금속이 빛을 받는 느낌을 낸다 */
+  --line: rgba(148, 163, 184, 0.13);
+  --line-2: #334155;
+  --edge: rgba(255, 236, 210, 0.10);
+
+  /* 글자 */
+  --text: #f1f5f9;
+  --text-2: #cbd5e1;
+  --text-3: #94a3b8;
+  --text-4: #64748b;
+
+  /* 제공자 색. 평상시 막대는 muted를 쓴다. 브랜드를 알아볼 만큼은 보이되
+     98% 남은 상태(가장 안전)가 화면에서 가장 밝은 덩어리가 되지 않게 한다. */
+  /* 두 muted 값은 지각 밝기를 맞춰 뒀다 (CIE L* 49.2 / 47.9, 차 1.3).
+     상대휘도만 맞추면 청록이 주황보다 훨씬 튀어 두 제공자가 형제로 안 보인다. */
+  --claude: #d9825c;
+  --claude-muted: #a8634a;
+  --codex: #19b8a0;
+  --codex-muted: #12806f;
+
+  /* 경보. 평상시 막대보다 밝기가 뛴다 (warn 3.3배, crit 1.75배).
+     crit은 밝기 차가 작아 색만으로는 부족하므로 셀 밑줄을 같이 쓴다. */
+  --warn: #ffc53d;
+  --crit: #ff5c6c;
+
+  /* 조작 요소. 제공자 색 어느 쪽과도 겹치지 않게 한랭 계열로 뺐다. */
+  --accent: #60a5fa;
+  --accent-dim: #2a4a72;
+
+  --radius-plate: 9px;
+  --radius-card: 9px;
+  --radius-ctl: 6px;
+  --radius-track: 2px;
+
+  /* 모션은 느린 쪽. 짧은 기본값(150~200ms)의 약 2배로 둔다. */
+  --t-meter: 420ms;
+  --t-ui: 280ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --font: "Bahnschrift SemiCondensed", "Bahnschrift",
+          "Segoe UI Variable Text", "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  /* 높이를 주지 않으면 height:100%인 시트가 기댈 곳이 없어, 본문이 창 밖으로
+     밀려나고 발(footer)이 사라진다. */
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* 제공자별 브랜드 변수. 셀이나 그룹에 올리면 안쪽 막대가 물려받는다. */
+[data-provider="claude"] { --brand: var(--claude); --brand-muted: var(--claude-muted); }
+[data-provider="codex"]  { --brand: var(--codex);  --brand-muted: var(--codex-muted); }
+
+/*
+ * 값 단계.
+ *   --level  글자용.  --bar  막대용.
+ * 평상시 막대는 브랜드 muted, 글자는 그냥 읽히게 둔다. 줄어들면 둘 다 경보색으로 뛴다.
+ */
+.lv-ok   { --level: var(--text); --bar: var(--brand-muted, #475569); }
+.lv-warn { --level: var(--warn); --bar: var(--warn); }
+.lv-crit { --level: var(--crit); --bar: var(--crit); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-meter: 0ms; --t-ui: 0ms; }
+}

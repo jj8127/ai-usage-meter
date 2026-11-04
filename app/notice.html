@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'">
+  <title>AI Usage 알림</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="notice.css">
+</head>
+<body>
+  <div class="notice" id="notice">
+    <span class="edge" id="edge"></span>
+    <img class="logo" id="logo" alt="">
+    <div class="text">
+      <div class="title" id="title"></div>
+      <div class="body" id="body"></div>
+    </div>
+    <button class="close" id="close" aria-label="닫기">✕</button>
+  </div>
+  <script type="module" src="notice.js"></script>
+</body>
+</html>

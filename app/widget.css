@@ -1,0 +1,225 @@
+/* 작업표시줄 위에 떠 있는 스트립. 전체가 드래그 영역이다. */
+
+.plate {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  /* 오른쪽은 톱니가 앉을 자리라 더 띄운다. */
+  padding: 5px 24px 5px 10px;
+  background: color-mix(in srgb, var(--bg) calc(var(--plate-alpha) * 100%), transparent);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 var(--edge),                  /* 빛을 받는 윗면 */
+    0 2px 9px rgba(0, 0, 0, 0.45);              /* 벽지와 분리. 장식이 아니라 판독성 */
+  -webkit-app-region: drag;
+  transition: box-shadow var(--t-ui) var(--ease), opacity 320ms var(--ease);
+}
+
+/*
+ * 투명도는 플레이트 바탕색에만 준다. 요소 전체에 opacity를 걸면 글자까지 흐려져
+ * 작은 숫자가 벽지에 묻힌다. 바탕만 비치고 글자는 또렷해야 한다.
+ */
+
+/* 켤 때 한 번만 하는 등장. 부팅 직후 불쑥 생기는 것보다 올라오는 편이 덜 놀랍다. */
+.plate.entering { animation: plate-enter 400ms var(--ease) both; }
+
+@keyframes plate-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plate.entering { animation: none; }
+  .plate { transition: none; }
+}
+
+/* 누를 수 있다는 신호. 띄우지 않고 그림자만 깊어진다. */
+.plate:hover { box-shadow: inset 0 1px 0 var(--edge), 0 5px 16px rgba(0, 0, 0, 0.55); }
+
+/* 드래그를 끝내면 베젤이 한 번 밝아진다. 자리를 잡았다는 비언어 신호. */
+.plate.settled {
+  box-shadow: inset 0 1px 0 rgba(255, 236, 210, 0.3), 0 2px 9px rgba(0, 0, 0, 0.45);
+}
+
+/* 작업표시줄을 따라 사라질 때. 창이 아니라 여기서 흐려진다.
+   BrowserWindow.setOpacity()는 transparent 창의 per-pixel 알파를 깨뜨린다. */
+.plate.gone { opacity: 0; pointer-events: none; }
+.plate.locked { -webkit-app-region: no-drag; }
+
+/* ---------------- 셀 ---------------- */
+
+.cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 8px;
+}
+
+.cell + .cell { margin-left: 9px; padding-left: 9px; }
+
+.cell + .cell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  background: var(--line);
+}
+
+/* ---------------- 제공자 표시 ---------------- */
+
+/* 로고 아래에 플랜. 이름 글자를 적지 않아도 어느 서비스인지 바로 보인다. */
+.id {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  width: 40px;
+}
+
+.logo { width: 19px; height: 19px; object-fit: contain; }
+
+.plan {
+  max-width: 100%;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------------- 창별 두 줄 ---------------- */
+
+/*
+ * 5시간 창과 주간 창을 각각 한 줄로 둔다. 큰 숫자 하나만 보여주던 때는 그것이
+ * 어느 창의 값인지 매번 되물어야 했다. 둘 다 보이면 물을 일이 없다.
+ */
+.rows {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+/* 어느 창인지. 제공자 브랜드색이라 좌우 셀도 한눈에 갈린다. */
+.tag {
+  flex: 0 0 auto;
+  width: 20px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--brand, var(--text-3));
+}
+
+.bar {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 24px;
+  height: 5px;
+  background: var(--groove);
+  border-radius: var(--radius-track);
+  overflow: hidden;
+}
+
+.bar .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--bar);
+  transition: width var(--t-meter) var(--ease), background-color var(--t-ui) var(--ease);
+}
+
+.pc {
+  flex: 0 0 auto;
+  width: 34px;
+  text-align: right;
+  font-weight: 700;
+  color: var(--level);
+  transition: color var(--t-ui) var(--ease);
+}
+
+.rs {
+  flex: 0 0 auto;
+  width: 64px;
+  text-align: right;
+  color: var(--text);
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+/* 한도가 없거나 값이 없는 창. 0%와 구분되어야 한다. */
+.row.absent .bar { background: rgba(255, 255, 255, 0.05); }
+.row.absent .fill { display: none; }
+.row.absent .pc, .row.absent .rs { color: var(--text-3); }
+
+/* 값이 오래됐어도 글자는 흐리게 하지 않는다. 한쪽만 흐려지면 색이 달라 보인다.
+   상태는 점으로만 알린다. */
+.cell.stale .logo, .cell.error .logo { opacity: 0.75; }
+
+.dot {
+  position: absolute;
+  top: 0;
+  left: 13px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 1.5px var(--bg);
+}
+
+.cell.error .dot { background: var(--crit); }
+
+/* ---------------- 설정 톱니 ---------------- */
+
+/*
+ * 오른쪽 위 모서리. 플레이트 오른쪽 여백에 앉으므로 글자와 겹치지 않는다.
+ * 플레이트 전체가 드래그 영역이라 이 버튼만 no-drag로 떼어낸다.
+ */
+.gear {
+  -webkit-app-region: no-drag;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease), color var(--t-ui) var(--ease);
+}
+
+.gear:hover { background: var(--surface-2); color: var(--text); }
+.gear:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.gear svg { display: block; }
+
+/* ---------------- 빈 상태 ---------------- */
+
+.plate.empty {
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-3);
+}

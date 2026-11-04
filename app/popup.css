@@ -1,0 +1,252 @@
+.sheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 var(--edge), 0 14px 40px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+/* ---------------- 머리 ---------------- */
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 13px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--line);
+  -webkit-app-region: drag;
+}
+
+.head h1 { margin: 0; font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em; }
+.spacer { flex: 1; }
+
+.btn {
+  -webkit-app-region: no-drag;
+  font: inherit;
+  font-size: 10.5px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-ctl);
+  padding: 5px 9px;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease), color var(--t-ui) var(--ease);
+}
+
+.btn:hover { background: var(--surface-3); color: var(--text); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn[disabled] { opacity: 0.5; cursor: default; }
+.btn.icon { padding: 5px 8px; }
+.btn.danger:hover { background: rgba(255, 92, 108, 0.16); color: var(--crit); }
+
+/* ---------------- 본문 ---------------- */
+
+/*
+ * 창이 뜰 때 시트가 짧게 들어온다. 창 자체는 애니메이션할 수 없어 안쪽이 대신 움직인다.
+ * 눌러서 열었다는 것을 확인시켜 주는 정도로만 한다.
+ */
+.sheet.appearing { animation: sheet-in 260ms var(--ease) both; }
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/*
+ * 조회 중 표시. 머리말 아래를 한 줄이 왕복한다.
+ * 얼마나 걸릴지 모르므로 진행률이 아니라 "돌고 있다"만 보인다.
+ */
+.progress { position: relative; height: 2px; overflow: hidden; background: var(--surface-2); }
+
+.progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  background: var(--accent);
+  animation: sweep 1100ms var(--ease) infinite;
+}
+
+@keyframes sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(300%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet.appearing { animation: none; }
+  .progress span { animation: none; width: 100%; opacity: 0.6; }
+}
+
+/* min-height: 0 이 없으면 flex 자식이 내용 높이 아래로 줄지 않아 본문이 발을 밀어낸다. */
+.body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.body::-webkit-scrollbar { width: 7px; }
+.body::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+
+.card {
+  background: var(--surface-1);
+  border-radius: var(--radius-card);
+  padding: 11px 12px 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.card-head { display: flex; align-items: center; gap: 7px; }
+.card-head .logo { width: 16px; height: 16px; object-fit: contain; }
+.card-head .who { font-size: 12px; font-weight: 600; }
+.card-head .src { font-size: 9px; color: var(--text-3); }
+
+/* 플랜은 브랜드 색으로 옅게 칠한 칩에 둔다. 어느 서비스의 등급인지 같이 읽힌다. */
+.chip {
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3.5px 6px;
+  border-radius: 4px;
+  color: var(--brand, var(--text-2));
+  background: color-mix(in srgb, var(--brand, var(--text-3)) 16%, transparent);
+}
+
+/* ---------------- 큰 숫자 ---------------- */
+
+.hero { display: flex; align-items: baseline; gap: 8px; margin: 9px 0 10px; }
+.hero .hnum { font-size: 30px; font-weight: 600; line-height: 0.9; letter-spacing: -0.02em; color: var(--level); }
+.hero .hpct { font-size: 13px; color: var(--level); opacity: 0.55; }
+
+.hero .hmeta { margin-left: auto; text-align: right; line-height: 1.35; }
+.hero .hwin { font-size: 10px; color: var(--text); font-weight: 600; }
+.hero .hreset { font-size: 9.5px; color: var(--text-2); word-break: keep-all; }
+
+.hero.absent .hnum { color: var(--text-3); }
+
+/* ---------------- 창 목록 ---------------- */
+
+.wrow {
+  display: grid;
+  grid-template-columns: 48px 1fr 40px 62px;
+  align-items: center;
+  gap: 8px;
+  padding: 3.5px 0;
+  font-size: 10px;
+}
+
+.wrow .label { color: var(--text-2); }
+.wrow .bar { position: relative; height: 4px; background: var(--groove); border-radius: var(--radius-track); overflow: hidden; }
+.wrow .bar .fill { position: absolute; inset: 0 auto 0 0; background: var(--bar); transition: width var(--t-meter) var(--ease); }
+.wrow .pc { text-align: right; font-weight: 600; color: var(--level); }
+.wrow .rs { text-align: right; color: var(--text-2); word-break: keep-all; }
+.wrow.absent .label, .wrow.absent .rs, .wrow.absent .pc { color: var(--text-3); }
+
+.note { font-size: 10px; color: var(--warn); margin: 7px 0 2px; word-break: keep-all; }
+.card.error .note { color: var(--crit); }
+.meta-line { margin-top: 8px; font-size: 9px; color: var(--text-3); }
+
+/* ---------------- 설정 ---------------- */
+
+/* 위젯의 설정 버튼으로 열었을 때 한 번 테두리가 들어왔다 빠진다.
+   창이 이미 떠 있으면 아무 일도 안 일어난 것처럼 보이므로, 눌린 것을 알려준다. */
+.card.pointed { animation: point 900ms var(--ease); }
+
+@keyframes point {
+  0%, 55% { box-shadow: inset 0 0 0 1px var(--accent), inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+  100%    { box-shadow: inset 0 0 0 1px transparent, inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.pointed { animation: none; box-shadow: inset 0 0 0 1px var(--accent); }
+}
+
+.card.settings .card-head { margin-bottom: 3px; }
+.card.settings .who { color: var(--text-2); }
+
+.srow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+
+.srow + .srow { border-top: 1px solid var(--line); }
+
+/* 분절 선택 */
+.seg { display: flex; gap: 2px; background: var(--surface-2); border-radius: var(--radius-ctl); padding: 2px; }
+
+.seg button {
+  font: inherit;
+  font-size: 10px;
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  padding: 3.5px 9px;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease), color var(--t-ui) var(--ease);
+}
+
+.seg button:hover { color: var(--text-2); }
+.seg button[aria-pressed="true"] { background: var(--accent-dim); color: var(--text); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* 스위치. 네이티브 체크박스는 OS 색을 따라가 팔레트와 어긋난다. */
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 19px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease);
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--text-4);
+  transition: transform var(--t-ui) var(--ease), background-color var(--t-ui) var(--ease);
+}
+
+.switch[aria-checked="true"] { background: var(--accent-dim); }
+.switch[aria-checked="true"]::after { transform: translateX(15px); background: var(--accent); }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------------- 발 ---------------- */
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  background: var(--surface-1);
+  border-top: 1px solid var(--line);
+}
+
+.foot .when { font-size: 9px; color: var(--text-3); }
+
+/* 소비 속도와 예측. 숫자 바로 아래에 붙여 "얼마 남았나"와 함께 읽히게 한다. */
+.pace {
+  margin: -4px 0 9px;
+  font-size: 10px;
+  color: var(--text-2);
+  word-break: keep-all;
+}
+
+.pace.runout { color: var(--warn); font-weight: 600; }
+.pace.surplus { color: var(--text-2); }
