@@ -10,6 +10,13 @@
 # **모니터가 여러 대면 작업표시줄도 여러 개다.** 주 모니터는 Shell_TrayWnd,
 # 나머지는 Shell_SecondaryTrayWnd 클래스를 쓴다. 하나라도 보이면 보이는 것으로 본다.
 #
+# **창을 EnumWindows로 찾으면 안 된다.** 시작 메뉴가 열려 있는 동안 주 작업표시줄
+# (Shell_TrayWnd)은 EnumWindows 목록에서 통째로 빠진다(실측: 열려 있는 4초 내내
+# 한 번도 나오지 않음). 같은 순간 FindWindow로는 같은 핸들이 그대로 잡히고,
+# 최상위 창이며 보이고, 사각형은 완전히 올라온 상태(top=1032, 겹침 48px)였다.
+# 그래서 Win키로 시작 메뉴를 열면 작업표시줄은 올라오는데 위젯은 안 떴다.
+# 창은 FindWindow/FindWindowEx로 찾는다.
+#
 # 판정은 전부 C# 안에서 한다. PowerShell 함수로 쪼개 두었을 때 겹침 비율이 1.0인데도
 # 0을 내보내는 일이 있었다(실측). 값이 오가는 곳을 없애는 편이 확실하다.
 #
@@ -19,16 +26,16 @@ $ErrorActionPreference = 'Stop'
 
 Add-Type @"
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 public class TB {
-  delegate bool EnumProc(IntPtr h, IntPtr l);
-  [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr FindWindow(string cls, string name);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string name);
   [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern bool GetMonitorInfo(IntPtr m, ref MONITORINFO mi);
-  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
 
   [StructLayout(LayoutKind.Sequential)]
   struct RECT { public int Left, Top, Right, Bottom; }
@@ -42,24 +49,40 @@ public class TB {
   /// 마지막 판정 근거. 문제를 추적할 때만 읽는다.
   public static string Detail = "";
 
+  /// 화면에 있는 작업표시줄 창 전부. 주 모니터 하나 + 보조 모니터 수만큼.
+  static List<KeyValuePair<string, IntPtr>> Bars() {
+    var bars = new List<KeyValuePair<string, IntPtr>>();
+    var primary = FindWindow("Shell_TrayWnd", null);
+    if (primary != IntPtr.Zero) bars.Add(new KeyValuePair<string, IntPtr>("Shell_TrayWnd", primary));
+    var prev = IntPtr.Zero;
+    while (true) {
+      prev = FindWindowEx(IntPtr.Zero, prev, "Shell_SecondaryTrayWnd", null);
+      if (prev == IntPtr.Zero) break;
+      bars.Add(new KeyValuePair<string, IntPtr>("Shell_SecondaryTrayWnd", prev));
+    }
+    return bars;
+  }
+
   /// 작업표시줄이 하나라도 화면에 올라와 있으면 1.
   public static int Shown() {
     int shown = 0;
     var log = new StringBuilder();
+    var bars = Bars();
 
-    EnumWindows((h, l) => {
-      var sb = new StringBuilder(64);
-      GetClassName(h, sb, sb.Capacity);
-      var cls = sb.ToString();
-      if (cls != "Shell_TrayWnd" && cls != "Shell_SecondaryTrayWnd") return true;
-      if (!IsWindowVisible(h)) return true;
+    // 작업표시줄을 못 찾으면 가린다고 보지 않는다. 숨은 채로 남는 편이 더 나쁘다.
+    if (bars.Count == 0) { Detail = "작업표시줄 없음"; return 1; }
+
+    foreach (var bar in bars) {
+      var cls = bar.Key;
+      var h = bar.Value;
+      if (!IsWindowVisible(h)) { log.Append(cls + " 숨은 창; "); continue; }
 
       RECT r;
-      if (!GetWindowRect(h, out r)) return true;
+      if (!GetWindowRect(h, out r)) { log.Append(cls + " 사각형 실패; "); continue; }
 
       var mi = new MONITORINFO();
       mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
-      if (!GetMonitorInfo(MonitorFromWindow(h, 2), ref mi)) return true;  // NEAREST
+      if (!GetMonitorInfo(MonitorFromWindow(h, 2), ref mi)) { log.Append(cls + " 모니터 실패; "); continue; }  // NEAREST
 
       // 가로 작업표시줄은 위아래로, 세로 작업표시줄은 좌우로 밀려 숨는다.
       int iy = Math.Min(r.Bottom, mi.rcMonitor.Bottom) - Math.Max(r.Top, mi.rcMonitor.Top);
@@ -68,11 +91,7 @@ public class TB {
       if (one) shown = 1;
 
       log.Append(cls + " ix=" + ix + " iy=" + iy + " -> " + one + "; ");
-      return true;
-    }, IntPtr.Zero);
-
-    // 작업표시줄을 못 찾으면 가린다고 보지 않는다. 숨은 채로 남는 편이 더 나쁘다.
-    if (log.Length == 0) { Detail = "작업표시줄 없음"; return 1; }
+    }
 
     Detail = log.ToString();
     return shown;
