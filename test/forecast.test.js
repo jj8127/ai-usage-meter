@@ -116,9 +116,9 @@ test("안 쓰는 중이면 바닥 예측을 내지 않는다", () => {
 });
 
 test("시간 표기", () => {
-  assert.equal(formatHours(0.5), "30분");
-  assert.equal(formatHours(2.5), "2시간 30분");
-  assert.equal(formatHours(30), "1일 6시간");
+  assert.equal(formatHours(0.5), "30min");
+  assert.equal(formatHours(2.5), "2h 30min");
+  assert.equal(formatHours(30), "1d 6h");
   assert.equal(formatHours(NaN), "--");
 });
 
@@ -179,14 +179,14 @@ test("사라진 창의 기록은 정리된다", () => {
 
 test("알림 문구", () => {
   const t = alertText({ kind: "threshold", leftPercent: 9 },
-    { providerName: "Claude", windowName: "주간", resetCountdown: "2일 3시간", formatHours });
+    { providerName: "Claude", windowName: "주간", resetCountdown: "2d 3h", formatHours });
   assert.match(t.title, /Claude 주간 9% 남음/);
-  assert.match(t.body, /2일 3시간/);
+  assert.match(t.body, /2d 3h/);
 
   const r = alertText({ kind: "runout", leftPercent: 70, hoursToEmpty: 1.5 },
-    { providerName: "Codex", windowName: "5시간", resetCountdown: "4시간", formatHours });
+    { providerName: "Codex", windowName: "5시간", resetCountdown: "4h", formatHours });
   assert.match(r.title, /한도 곧 소진/);
-  assert.match(r.body, /1시간 30분 뒤 0%/);
+  assert.match(r.body, /1h 30min 뒤 0%/);
 });
 
 /* ---------- 리셋 시각의 마이크로초 흔들림 ---------- */

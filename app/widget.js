@@ -118,12 +118,12 @@ function applyRow(ref, key, provider) {
 
   // Ultra는 5시간 한도가 없다. 값을 못 받은 것과 한도가 없는 것은 다르다.
   const noLimit = key === "session" && provider?.plan === "Ultra";
-  ref.rs.textContent = w ? w.resetCountdown : (noLimit ? "한도 없음" : "데이터 없음");
+  ref.rs.textContent = w ? w.resetCountdown : (noLimit ? "no limit" : "데이터 없음");
 
   ref.row.title = w
     ? `${WINDOW_NAMES[key]} ${w.leftPercent}% 남음 · ${w.resetCountdown} 뒤 초기화`
       + (w.forecast?.ratePerHour ? ` · 시간당 ${w.forecast.ratePerHour}%` : "")
-    : `${WINDOW_NAMES[key]} ${noLimit ? "한도 없음" : "데이터 없음"}`;
+    : `${WINDOW_NAMES[key]} ${noLimit ? "no limit" : "데이터 없음"}`;
 }
 
 function applyCell(name, provider) {

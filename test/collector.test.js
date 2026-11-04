@@ -45,9 +45,9 @@ test("리셋 시각이 지났으면 '곧 리셋'", () => {
 
 test("카운트다운 표기", () => {
   assert.equal(formatCountdown(null), "--");
-  assert.equal(formatCountdown(25 * 60_000), "25분");
-  assert.equal(formatCountdown(3 * 3600_000 + 12 * 60_000), "3시간 12분");
-  assert.equal(formatCountdown(4 * 86400_000 + 22 * 3600_000), "4일 22시간");
+  assert.equal(formatCountdown(25 * 60_000), "25min");
+  assert.equal(formatCountdown(3 * 3600_000 + 12 * 60_000), "3h 12min");
+  assert.equal(formatCountdown(4 * 86400_000 + 22 * 3600_000), "4d 22h");
 });
 
 /* ---------- 플랜 이름: rateLimitTier가 우선 ---------- */

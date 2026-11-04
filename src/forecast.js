@@ -1,7 +1,7 @@
 /**
  * 소비 속도와 소진 예측.
  *
- * 위젯이 "81% 남음, 리셋까지 4일 20시간"만 보여주면, 끊길지 아닐지는 사용자가
+ * 위젯이 "81% 남음, 리셋까지 4d 20h"만 보여주면, 끊길지 아닐지는 사용자가
  * 머릿속으로 계산해야 한다. 그 계산을 여기서 한다.
  *
  * 입력은 수집기가 주기적으로 받는 잔여 %뿐이다. 새 API도 새 권한도 필요 없다.
@@ -153,10 +153,10 @@ export function forecastLine(f) {
 export function formatHours(hours) {
   if (!Number.isFinite(hours)) return "--";
   const mins = Math.round(hours * 60);
-  if (mins < 60) return `${Math.max(1, mins)}분`;
+  if (mins < 60) return `${Math.max(1, mins)}min`;
   const d = Math.floor(mins / 1440);
   const h = Math.floor((mins % 1440) / 60);
-  if (d > 0) return h > 0 ? `${d}일 ${h}시간` : `${d}일`;
+  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
   const m = mins % 60;
-  return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }

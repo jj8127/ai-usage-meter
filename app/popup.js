@@ -118,7 +118,7 @@ function providerCard(name, provider) {
     if (!w && key === "session" && provider?.weeklyOnly) continue;
     // Ultra는 5시간 한도가 없다(2026-10 개편). 값이 안 오는 것이 정상이므로
     // "데이터 없음"이 아니라 그렇게 말한다.
-    const note = (key === "session" && provider?.plan === "Ultra") ? "한도 없음" : "데이터 없음";
+    const note = (key === "session" && provider?.plan === "Ultra") ? "no limit" : "데이터 없음";
     card.appendChild(windowRow(WINDOW_NAMES[key], w,
       level(w?.leftPercent ?? 100, severityFor(provider, key)), note));
   }

@@ -35,7 +35,12 @@ export function clampPercent(n) {
   return Math.min(100, Math.max(0, Math.round(Number(n) * 10) / 10));
 }
 
-/** 남은 시간을 "3시간 12분" / "12분" 꼴로. 값이 없으면 "--". */
+/**
+ * 남은 시간을 "3h 12min" / "12min" 꼴로. 값이 없으면 "--".
+ *
+ * 단위는 d·h·min으로 줄여 적는다. 스트립 한 줄에 두 서비스가 들어가므로
+ * "4일 22시간"처럼 적으면 칸을 넓혀야 하고, 그만큼 막대가 짧아진다.
+ */
 export function formatCountdown(ms) {
   if (ms === null || ms === undefined || !Number.isFinite(ms)) return "--";
   if (ms <= 0) return "곧 리셋";
@@ -43,7 +48,7 @@ export function formatCountdown(ms) {
   const days = Math.floor(totalMin / 1440);
   const hours = Math.floor((totalMin % 1440) / 60);
   const mins = totalMin % 60;
-  if (days > 0) return hours > 0 ? `${days}일 ${hours}시간` : `${days}일`;
-  if (hours > 0) return mins > 0 ? `${hours}시간 ${mins}분` : `${hours}시간`;
-  return `${mins}분`;
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
+  return `${mins}min`;
 }

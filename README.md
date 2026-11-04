@@ -126,7 +126,7 @@ The long version — every dead end, with the measurements — is in
 - **The plan name comes from the token** and is fixed when the token was issued. After
   Anthropic's Oct 2026 rename (Max 20x → Ultra) an old token still says `max_5x`, so you
   can override the plan in settings.
-- **Ultra has no 5-hour limit**, so that row reads `한도 없음` (no limit) rather than 0%.
+- **Ultra has no 5-hour limit**, so that row reads `no limit` rather than 0%.
 - Windows toast notifications never arrived on the development machine, so the app draws
   its own notification window instead.
 

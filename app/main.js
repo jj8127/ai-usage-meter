@@ -1084,7 +1084,7 @@ if (!app.requestSingleInstanceLock()) {
     fs.writeFileSync(path.join(dir, "popup.png"), shot.toPNG());
 
     // 알림 창도 찍는다. 눈으로 확인할 길이 이것뿐이다.
-    showNotice("Claude 주간 9% 남음", "리셋까지 2일 3시간", { provider: "claude", level: "crit" });
+    showNotice("Claude 주간 9% 남음", "리셋까지 2d 3h", { provider: "claude", level: "crit" });
     await settle(900);
     if (noticeWin && !noticeWin.isDestroyed()) {
       fs.writeFileSync(path.join(dir, "notice.png"),
@@ -1211,7 +1211,7 @@ if (!app.requestSingleInstanceLock()) {
           const plan = c.querySelector('.plan'), until = c.querySelector('.until');
           const keep = [plan.textContent, until.textContent];
           plan.textContent = 'ChatGPT Enterprise';
-          until.textContent = '13일 23시간';
+          until.textContent = '13d 23h';
           rows.push({ provider: c.dataset.provider,
             planCut: plan.scrollWidth > plan.clientWidth + 1,
             untilCut: until.scrollWidth > until.clientWidth + 1,
